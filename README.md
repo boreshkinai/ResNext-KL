@@ -1,1 +1,1 @@
-# ResNext-KL
+# ResNeXt-tensorflow
