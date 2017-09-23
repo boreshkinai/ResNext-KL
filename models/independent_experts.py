@@ -14,6 +14,7 @@ HParams = namedtuple('HParams',
                      'relu_leakiness, optimizer, use_hyper, projection_width, architecture')
 
 COLUMN_MAP_NAME='columns.pkl'
+MI_LOSS_SCALE = 1.0
 
 class Net(object):
 
@@ -50,20 +51,46 @@ class Net(object):
 
             return math_ops.multiply(osc, learning_rate, name=name)
 
+    @staticmethod
+    def get_mi(logits1, logits2):
+        """This computs mutual information between logits1, logits2"""
+        with tf.variable_scope('mutual_information'):
+            # Compute softmax
+            sf1 = tf.nn.softmax(logits1)
+            sf2 = tf.nn.softmax(logits2)
+            # Compute marginal distributions
+            p = tf.reduce_mean(sf1, axis=0)
+            q = tf.reduce_mean(sf2, axis=0)
+            p = tf.expand_dims(p, 1)
+            q = tf.expand_dims(q, 0)
+            independent = tf.matmul(p, q)
+            # Compute joint distribution
+            sf1 = tf.expand_dims(sf1, 2)
+            sf2 = tf.expand_dims(sf2, 1)
+            joint = tf.matmul(sf1, sf2)
+            joint = tf.reduce_mean(joint, axis=0)
+            # Mutual information
+            mi = tf.reduce_mean( joint * (tf.log(joint + 1e-6) - tf.log(independent + 1e-6) ) )
+            return mi
+
 
     def train_column(self, images, labels):
 
-        logits1 = self.predict_columns(images=images, is_training=True)
+        logits1, logits2 = self.predict_columns(images=images, is_training=True)
         # logits2 = h2[-1]
+        logits = logits1+logits2
 
-        loss1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=tf.one_hot(labels, 10)))
+        loss1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.one_hot(labels, 10)))
         # loss2 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=tf.one_hot(labels, 10)))
 
-        regu_losses = slim.losses.get_regularization_losses()
-        total_loss = tf.add_n([loss1] + regu_losses) #  + [loss2]
+        mi = MI_LOSS_SCALE * self.get_mi(logits1, logits2)
 
-        misclass1 = 1.0 - slim.metrics.accuracy(tf.argmax(logits1, 1), labels)
+        regu_losses = slim.losses.get_regularization_losses()
+        total_loss = tf.add_n([loss1] + [mi] + regu_losses) #  + [loss2]
+
+        misclass1 = 1.0 - slim.metrics.accuracy(tf.argmax(logits, 1), labels)
         tf.summary.scalar('misclassification1', misclass1)
+        tf.summary.scalar('mi', mi)
         # misclass2 = 1.0 - slim.metrics.accuracy(tf.argmax(logits2, 1), labels)
         # tf.summary.scalar('misclassification2', misclass2)
 
@@ -91,14 +118,17 @@ class Net(object):
 
     def eval_column(self, images, labels):
 
-        logits = self.predict_columns(images=images, is_training=False)
+        logits1, logits2 = self.predict_columns(images=images, is_training=False)
+        logits = logits1+logits2
 
         loss = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits(
                 logits=logits, labels=tf.one_hot(labels, 10)))
 
+        mi = MI_LOSS_SCALE * self.get_mi(logits1, logits2)
+
         regu_losses = slim.losses.get_regularization_losses()
-        total_loss = tf.add_n([loss] + regu_losses)
+        total_loss = tf.add_n([loss] + [mi] + regu_losses)
 
         accuracy, update = slim.metrics.streaming_accuracy(tf.argmax(logits, 1), labels)
         metric_dictionary = {'misclassification': (1.0 - accuracy, update)}
@@ -190,22 +220,22 @@ class Net(object):
                 h_stack1.append(h1)
                 h_stack2.append(h2)
 
-            # # process the fully connected layer
-            # with tf.variable_scope('col1'):
-            #     h1 = self.hps.architecture[-1].apply(h_stack1[-1])
-            #     h_stack1.append(h1)
-            #     flat_logits1 = slim.flatten(h1, scope='logits/flat_logits')
-            #     h_stack1.append(flat_logits1)
-            #
-            # with tf.variable_scope('col2'):
-            #     h2 = self.hps.architecture[-1].apply(h_stack2[-1])
-            #     h_stack2.append(h2)
-            #     flat_logits2 = slim.flatten(h2, scope='logits/flat_logits')
-            #     h_stack2.append(flat_logits2)
+            # process the fully connected layer
+            with tf.variable_scope('col1'):
+                h1 = self.hps.architecture[-1].apply(h_stack1[-1])
+                h_stack1.append(h1)
+                flat_logits1 = slim.flatten(h1, scope='logits/flat_logits')
+                h_stack1.append(flat_logits1)
 
-            with tf.variable_scope('fuse'):
-                lateral_stack = tf.concat(values=[h_stack1[-1], h_stack2[-1]], axis=-1, name='/concat_lateral')
-                logits = self.hps.architecture[-1].apply(lateral_stack)
-                flat_logits = slim.flatten(logits, scope='logits/flat_logits')
+            with tf.variable_scope('col2'):
+                h2 = self.hps.architecture[-1].apply(h_stack2[-1])
+                h_stack2.append(h2)
+                flat_logits2 = slim.flatten(h2, scope='logits/flat_logits')
+                h_stack2.append(flat_logits2)
 
-        return flat_logits
+            # with tf.variable_scope('fuse'):
+            #     lateral_stack = tf.concat(values=[h_stack1[-1], h_stack2[-1]], axis=-1, name='/concat_lateral')
+            #     logits = self.hps.architecture[-1].apply(lateral_stack)
+            #     flat_logits = slim.flatten(logits, scope='logits/flat_logits')
+        # return flat_logits
+        return h_stack1[-1], h_stack2[-1]
