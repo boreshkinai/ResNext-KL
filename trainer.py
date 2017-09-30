@@ -66,7 +66,7 @@ def train():
 
         images_mi, labels_mi = datasets.load_batch(
             'cifar10_by_class', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
-            FLAGS.data_dir + FLAGS.dataset, shuffle=False, augment=True, common_queue_capacity=FLAGS.train_batch_size, common_queue_min=0, num_readers=1)
+            FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True, common_queue_capacity=FLAGS.train_batch_size, common_queue_min=0, num_readers=1)
 
         # tf.summary.image('images', images, 16)
         # tf.summary.tensor_summary('labels', labels)
