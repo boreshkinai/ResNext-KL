@@ -178,7 +178,7 @@ def run(dataset_dir):
     training_filename = os.path.join(dataset_dir, 'train-c-{:02d}-s-{:05d}-of-{:05d}')
     testing_filename = os.path.join(dataset_dir, 'test-c-{:02d}-s-{:05d}-of-{:05d}')
 
-    # _download_and_uncompress_dataset(dataset_dir)
+    _download_and_uncompress_dataset(dataset_dir)
 
     # First, process the training data:
     filenames = [os.path.join(dataset_dir, 'cifar-10-batches-py',

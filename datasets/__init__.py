@@ -13,12 +13,12 @@ _DATASETS = {'cifar10': cifar10,
 
 
 def load_example(dataset_name, file_pattern, num_examples, dataset_dir,
-                 shuffle=True):
+                 shuffle=True, common_queue_capacity=128, common_queue_min=64, num_readers=8):
     dataset = _DATASETS[dataset_name].get_split(
         file_pattern, num_examples, dataset_dir)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(
-        dataset, shuffle=shuffle, common_queue_capacity=32,
-        common_queue_min=0, num_readers=1)
+        dataset, shuffle=shuffle, common_queue_capacity=common_queue_capacity,
+        common_queue_min=common_queue_min, num_readers=num_readers)
     image, label = data_provider.get(['image', 'label'])
 
     image = math_ops.cast(image, tf.float32)
@@ -41,9 +41,9 @@ def image_augment(image):
 
 
 def load_batch(dataset_name, file_pattern, num_examples, batch_size,
-               dataset_dir, shuffle=True, augment=True):
+               dataset_dir, shuffle=True, augment=True, common_queue_capacity=128, common_queue_min=64, num_readers=8):
     image, label = load_example(dataset_name, file_pattern, num_examples,
-                                dataset_dir, shuffle)
+                                dataset_dir, shuffle, common_queue_capacity=common_queue_capacity, common_queue_min=common_queue_min, num_readers=num_readers)
     if augment:
         image = image_augment(image)
 

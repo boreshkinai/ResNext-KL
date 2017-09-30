@@ -76,20 +76,19 @@ class Net(object):
 
     def train_column(self, images, labels):
 
-        logits1, logits2 = self.predict_columns(images=images, is_training=True)
-        # logits2 = h2[-1]
+        # This is crossentropy loss of processing a randomized batch
+        logits1, logits2 = self.predict_columns(images=images[0], is_training=True, is_reuse=None)
         logits = logits1+logits2
-
-        loss1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.one_hot(labels, 10)))
-        # loss2 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=tf.one_hot(labels, 10)))
-
-        mi = MI_LOSS_SCALE * self.get_mi(logits1, logits2)
+        loss1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.one_hot(labels[0], 10)))
+        # This is the mutual information loss based on images organized one class per batch
+        logits_mi_1, logits_mi_2 = self.predict_columns(images=images[1], is_training=True, is_reuse=True)
+        mi = MI_LOSS_SCALE * self.get_mi(logits_mi_1, logits_mi_2)
 
         regu_losses = slim.losses.get_regularization_losses()
-        total_loss = tf.add_n([loss1] + [mi] + regu_losses) #  + [loss2]
+        total_loss = tf.add_n([loss1] + [mi] + regu_losses)
 
-        misclass1 = 1.0 - slim.metrics.accuracy(tf.argmax(logits, 1), labels)
-        tf.summary.scalar('misclassification1', misclass1)
+        misclass = 1.0 - slim.metrics.accuracy(tf.argmax(logits, 1), labels[0])
+        tf.summary.scalar('misclassification', misclass)
         tf.summary.scalar('mi', mi)
         # misclass2 = 1.0 - slim.metrics.accuracy(tf.argmax(logits2, 1), labels)
         # tf.summary.scalar('misclassification2', misclass2)
@@ -191,7 +190,7 @@ class Net(object):
         return conv2d_arg_scope, dropout_arg_scope
 
 
-    def predict_columns(self, images, is_training):
+    def predict_columns(self, images, is_training, is_reuse=None):
         conv2d_arg_scope, dropout_arg_scope = self._get_scope(is_training)
 
         h_stack1 = []
@@ -203,14 +202,14 @@ class Net(object):
 
             for layer_idx, layer in enumerate(self.hps.architecture[:-1]):
                 adaptor = self.hps.adaptors[layer_idx]
-                with tf.variable_scope('col1'):
+                with tf.variable_scope('col1',reuse=is_reuse):
                     h1 = layer.apply(h_stack1[-1])
                     if adaptor != None:
                         h2_1 = adaptor.apply(h_stack2[-1])
                         h1 = tf.add(h1, h2_1, name=layer.scope + '/add_lateral')
                         h1 = tf.nn.relu(h1, name=layer.scope + '/relu')
 
-                with tf.variable_scope('col2'):
+                with tf.variable_scope('col2',reuse=is_reuse):
                     h2 = layer.apply(h_stack2[-1])
                     if adaptor != None:
                         h1_2 = adaptor.apply(h_stack1[-1])
@@ -221,13 +220,13 @@ class Net(object):
                 h_stack2.append(h2)
 
             # process the fully connected layer
-            with tf.variable_scope('col1'):
+            with tf.variable_scope('col1',reuse=is_reuse):
                 h1 = self.hps.architecture[-1].apply(h_stack1[-1])
                 h_stack1.append(h1)
                 flat_logits1 = slim.flatten(h1, scope='logits/flat_logits')
                 h_stack1.append(flat_logits1)
 
-            with tf.variable_scope('col2'):
+            with tf.variable_scope('col2',reuse=is_reuse):
                 h2 = self.hps.architecture[-1].apply(h_stack2[-1])
                 h_stack2.append(h2)
                 flat_logits2 = slim.flatten(h2, scope='logits/flat_logits')

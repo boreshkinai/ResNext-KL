@@ -18,7 +18,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 flags = tf.app.flags
 flags.DEFINE_string('data_dir', './datasets/', 'Path to the data.')
 flags.DEFINE_integer('num_samples_train', 50000, 'Number of train samples?')
-flags.DEFINE_integer('train_batch_size', 32, 'Training batch size.')
+flags.DEFINE_integer('train_batch_size', 16, 'Training batch size.')
 flags.DEFINE_integer('learning_rate', 0.1/8.0, 'Training batch size.')
 flags.DEFINE_string('log_dir', '', 'Base directory for logging.')
 flags.DEFINE_string('checkpoint_dir', './logs', 'Base directory for checkpoints.')
@@ -60,22 +60,26 @@ def get_logdir_name():
 
 def train():
     with tf.Graph().as_default():
-        images, labels = datasets.load_batch(
-            FLAGS.dataset, FLAGS.file_pattern, FLAGS.num_samples_train, FLAGS.train_batch_size,
-            FLAGS.data_dir+FLAGS.dataset, shuffle=False, augment=True)
+        images_cls, labels_cls = datasets.load_batch(
+            'cifar10', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
+            FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True)
+
+        images_mi, labels_mi = datasets.load_batch(
+            'cifar10_by_class', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
+            FLAGS.data_dir + FLAGS.dataset, shuffle=False, augment=True, common_queue_capacity=FLAGS.train_batch_size, common_queue_min=0, num_readers=1)
 
         # tf.summary.image('images', images, 16)
         # tf.summary.tensor_summary('labels', labels)
 
         net = independent_experts.Net(flags=FLAGS, hps=hps, mode=FLAGS.mode, session=sess)
 
-        net.train_column(images=images, labels=labels)
+        net.train_column(images=[images_cls,images_mi], labels=[labels_cls,labels_mi])
 
 
 def evaluate():
     with tf.Graph().as_default():
         images, labels = datasets.load_batch(
-            FLAGS.dataset, FLAGS.file_pattern, FLAGS.num_samples_eval, FLAGS.eval_batch_size, 
+            'cifar10', 'train*', FLAGS.num_samples_eval, FLAGS.eval_batch_size,
             FLAGS.data_dir+FLAGS.dataset, shuffle=False, augment=False)
 
         net = independent_experts.Net(flags=FLAGS, hps=hps, mode=FLAGS.mode, session=sess)
