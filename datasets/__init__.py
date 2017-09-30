@@ -4,9 +4,11 @@ import numpy as np
 from tensorflow.python.ops import math_ops
 
 from . import cifar10
+from . import cifar10_by_class
 from . import cifar100
 
 _DATASETS = {'cifar10': cifar10,
+             'cifar10_by_class': cifar10_by_class,
              'cifar100': cifar100}
 
 
@@ -16,7 +18,7 @@ def load_example(dataset_name, file_pattern, num_examples, dataset_dir,
         file_pattern, num_examples, dataset_dir)
     data_provider = slim.dataset_data_provider.DatasetDataProvider(
         dataset, shuffle=shuffle, common_queue_capacity=32,
-        common_queue_min=8, num_readers=4)
+        common_queue_min=0, num_readers=1)
     image, label = data_provider.get(['image', 'label'])
 
     image = math_ops.cast(image, tf.float32)
