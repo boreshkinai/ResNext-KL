@@ -60,13 +60,15 @@ def get_logdir_name():
 
 def train():
     with tf.Graph().as_default():
-        images_cls, labels_cls = datasets.load_batch(
-            'cifar10', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
-            FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True)
+        with tf.variable_scope('randomized_batch'):
+            images_cls, labels_cls = datasets.load_batch(
+                'cifar10', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
+                FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True)
 
-        images_mi, labels_mi = datasets.load_batch(
-            'cifar10_by_class', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
-            FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True, common_queue_capacity=FLAGS.train_batch_size, common_queue_min=0, num_readers=1)
+        with tf.variable_scope('one_class_batch'):
+            images_mi, labels_mi = datasets.load_batch(
+                'cifar10_by_class', 'train*', FLAGS.num_samples_train, FLAGS.train_batch_size,
+                FLAGS.data_dir + FLAGS.dataset, shuffle=True, augment=True, common_queue_capacity=FLAGS.train_batch_size, common_queue_min=0, num_readers=1)
 
         # tf.summary.image('images', images, 16)
         # tf.summary.tensor_summary('labels', labels)
@@ -79,7 +81,7 @@ def train():
 def evaluate():
     with tf.Graph().as_default():
         images, labels = datasets.load_batch(
-            'cifar10', 'train*', FLAGS.num_samples_eval, FLAGS.eval_batch_size,
+            'cifar10', 'test*', FLAGS.num_samples_eval, FLAGS.eval_batch_size,
             FLAGS.data_dir+FLAGS.dataset, shuffle=False, augment=False)
 
         net = independent_experts.Net(flags=FLAGS, hps=hps, mode=FLAGS.mode, session=sess)

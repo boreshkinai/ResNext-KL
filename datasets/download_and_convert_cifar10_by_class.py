@@ -46,7 +46,7 @@ _NUM_TRAIN_FILES = 5
 _IMAGE_SIZE = 32
 
 # The size of each dataset shard
-_SHARD_SIZE = 1000
+_SHARD_SIZE = 64
 
 # The names of the classes.
 _CLASS_NAMES = [
@@ -182,8 +182,7 @@ def run(dataset_dir):
 
     # First, process the training data:
     filenames = [os.path.join(dataset_dir, 'cifar-10-batches-py',
-                              'data_batch_{}'.format(i + 1))
-                 for i in range(_NUM_TRAIN_FILES)]
+                              'data_batch_{}'.format(_NUM_TRAIN_FILES))]
     _build_shards(filenames, training_filename)
 
     # Next, process the testing data:

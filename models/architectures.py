@@ -334,7 +334,7 @@ class AveragePoolLayer(object):
 # ResNeXt. total layers = 1 + 3n + 3n + 3n +1 = 9n + 2
 
 ArchitectureResNext = [
-    ConvLayer(num_outputs=64, kernel_size=3, stride=1, scope='conv0',
+    ConvLayer(num_outputs=64, kernel_size=3, stride=1, scope='input/conv0',
               activation_fn=None,
               weights_initializer=ScaledVarianceRandomNormal(),
               weights_regularizer=tf.contrib.layers.l2_regularizer(scale=WEIGHT_DECAY)),
