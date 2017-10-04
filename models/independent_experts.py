@@ -210,20 +210,20 @@ class Net(object):
             h_stack2.append(h)
 
             for layer_idx, layer in enumerate(self.hps.architecture[:-1]):
-                adaptor = self.hps.adaptors[layer_idx]
+                # adaptor = self.hps.adaptors[layer_idx]
                 with tf.variable_scope('col1',reuse=is_reuse):
                     h1 = layer.apply(h_stack1[-1])
-                    if adaptor != None:
-                        h2_1 = adaptor.apply(h_stack2[-1])
-                        h1 = tf.add(h1, h2_1, name=layer.scope + '/add_lateral')
-                        h1 = tf.nn.relu(h1, name=layer.scope + '/relu')
+                    # if adaptor != None:
+                    #     h2_1 = adaptor.apply(h_stack2[-1])
+                    #     h1 = tf.add(h1, h2_1, name=layer.scope + '/add_lateral')
+                    h1 = tf.nn.relu(h1, name=layer.scope + '/relu')
 
                 with tf.variable_scope('col2',reuse=is_reuse):
                     h2 = layer.apply(h_stack2[-1])
-                    if adaptor != None:
-                        h1_2 = adaptor.apply(h_stack1[-1])
-                        h2 = tf.add(h2, h1_2, name=layer.scope + '/add_lateral')
-                        h2 = tf.nn.relu(h2, name=layer.scope + '/relu')
+                    # if adaptor != None:
+                    #     h1_2 = adaptor.apply(h_stack1[-1])
+                    #     h2 = tf.add(h2, h1_2, name=layer.scope + '/add_lateral')
+                    h2 = tf.nn.relu(h2, name=layer.scope + '/relu')
 
                 h_stack1.append(h1)
                 h_stack2.append(h2)
