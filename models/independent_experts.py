@@ -78,14 +78,18 @@ class Net(object):
 
         # This is crossentropy loss of processing a randomized batch
         logits1, logits2 = self.predict_columns(images=images[0], is_training=True, is_reuse=None)
-        logits = logits1+logits2
-        loss1 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.one_hot(labels[0], 10)))
+        logits = 0.5*(logits1+logits2)
+
+        loss1 = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(logits=logits1, labels=tf.one_hot(labels[0], 10)))
+        loss2 = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(logits=logits2, labels=tf.one_hot(labels[0], 10)))
         # This is the mutual information loss based on images organized one class per batch
         logits_mi_1, logits_mi_2 = self.predict_columns(images=images[1], is_training=True, is_reuse=True)
         mi = MI_LOSS_SCALE * self.get_mi(logits_mi_1, logits_mi_2)
 
         regu_losses = slim.losses.get_regularization_losses()
-        total_loss = tf.add_n([loss1] + [mi] + regu_losses)
+        total_loss = tf.add_n([loss1, loss2] + [mi] + regu_losses)
 
         misclass = 1.0 - slim.metrics.accuracy(tf.argmax(logits, 1), labels[0])
         tf.summary.scalar('misclassification', misclass)
@@ -118,19 +122,24 @@ class Net(object):
     def eval_column(self, images, labels):
 
         logits1, logits2 = self.predict_columns(images=images, is_training=False)
-        logits = logits1+logits2
+        logits = 0.5*(logits1+logits2)
 
-        loss = tf.reduce_mean(
+        loss1 = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits(
-                logits=logits, labels=tf.one_hot(labels, 10)))
+                logits=logits1, labels=tf.one_hot(labels, 10)))
+        loss2 = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(
+                logits=logits2, labels=tf.one_hot(labels, 10)))
 
         mi = MI_LOSS_SCALE * self.get_mi(logits1, logits2)
 
         regu_losses = slim.losses.get_regularization_losses()
-        total_loss = tf.add_n([loss] + [mi] + regu_losses)
+        total_loss = tf.add_n([loss1, loss2] + [mi] + regu_losses)
 
+        accuracy1, update1 = slim.metrics.streaming_accuracy(tf.argmax(logits1, 1), labels)
+        accuracy2, update2 = slim.metrics.streaming_accuracy(tf.argmax(logits2, 1), labels)
         accuracy, update = slim.metrics.streaming_accuracy(tf.argmax(logits, 1), labels)
-        metric_dictionary = {'misclassification': (1.0 - accuracy, update)}
+        metric_dictionary = {'misclassification': (1.0 - accuracy, update), 'misclassification1': (1.0 - accuracy1, update1), 'misclassification2': (1.0 - accuracy2, update2), }
 
         names_to_values, names_to_updates = slim.metrics.aggregate_metric_map(metric_dictionary)
 
