@@ -182,7 +182,8 @@ def run(dataset_dir):
 
     # First, process the training data:
     filenames = [os.path.join(dataset_dir, 'cifar-10-batches-py',
-                              'data_batch_{}'.format(_NUM_TRAIN_FILES))]
+                              'data_batch_{}'.format(i + 1))
+                 for i in range(_NUM_TRAIN_FILES)]
     _build_shards(filenames, training_filename)
 
     # Next, process the testing data:
